@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "1043767445670",
+    "project_id": "giftgenie-d5c72",
+    "storage_bucket": "giftgenie-d5c72.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1043767445670:android:1124ae8c58fdd57a284c67",
+        "android_client_info": {
+          "package_name": "com.example.gift_genie"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiVgF35DXMAQ5ShnAWsXDadUtJ-DEtyok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1043767445670:android:2088ea4eb6d83b09284c67",
+        "android_client_info": {
+          "package_name": "com.example.giftgenie"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiVgF35DXMAQ5ShnAWsXDadUtJ-DEtyok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1043767445670:android:42e5b4660f87a556284c67",
+        "android_client_info": {
+          "package_name": "com.giftgenie"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiVgF35DXMAQ5ShnAWsXDadUtJ-DEtyok"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
