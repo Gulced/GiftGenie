@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../service/gemini_service.dart';
+import '../service/prompt_builder.dart';
+import '../models/gift_suggestion.dart';
+import '../utils/gift_utils.dart';
 
 class GiftSuggestionPage extends StatefulWidget {
   const GiftSuggestionPage({super.key});
@@ -10,153 +13,164 @@ class GiftSuggestionPage extends StatefulWidget {
 
 class _GiftSuggestionPageState extends State<GiftSuggestionPage> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
   final _ageController = TextEditingController();
   final _genderController = TextEditingController();
-  final _hobbiesController = TextEditingController();
-  final _budgetController = TextEditingController();
   final _relationController = TextEditingController();
+  final _hobbiesController = TextEditingController();
   final _personalityController = TextEditingController();
+  final _budgetMinController = TextEditingController();
+  final _budgetMaxController = TextEditingController();
+  final _suggestionCountController = TextEditingController(text: "3");
 
   String _suggestion = '';
   bool _loading = false;
+  List<GiftSuggestion> _giftSuggestions = [];
 
   Future<void> _getSuggestions() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final prompt = """
-Bir kişiye hediye önerisi ver:
-- İsim: ${_nameController.text}
-- Yaş: ${_ageController.text}
-- Cinsiyet: ${_genderController.text}
-- Kişilik özellikleri: ${_personalityController.text}
-- Hobiler: ${_hobbiesController.text}
-- Bütçe: ${_budgetController.text} TL
-- İlişki türü: ${_relationController.text}
+    final yas = int.tryParse(_ageController.text) ?? 0;
+    final cinsiyet = _genderController.text.trim();
+    final iliski = _relationController.text.trim();
+    final hobiler =
+    _hobbiesController.text.split(',').map((e) => e.trim()).toList();
+    final kisilik = _personalityController.text.trim();
+    final minButce = int.tryParse(_budgetMinController.text) ?? 0;
+    final maxButce = int.tryParse(_budgetMaxController.text) ?? 0;
+    final onerilenSayi = int.tryParse(_suggestionCountController.text) ?? 3;
 
-Lütfen 3 öneri ver. Her biri için:
-- Hediye açıklaması
-- Neden uygun olduğu
-- Uygun ürün linki (örnek: trendyol.com veya amazon.com.tr)
-- Fotoğraf linki
-""";
+    final prompt = buildGiftPrompt(
+      yas: yas,
+      cinsiyet: cinsiyet,
+      iliski: iliski,
+      hobiler: hobiler,
+      kisilik: kisilik,
+      minButce: minButce,
+      maxButce: maxButce,
+      onerilenSayi: onerilenSayi,
+    );
 
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _suggestion = '';
+      _giftSuggestions = [];
+    });
 
     try {
       final result = await GeminiService.getGiftSuggestions(prompt);
-      setState(() => _suggestion = result);
+      final suggestions = parseGiftSuggestions(result);
+      setState(() {
+        _suggestion = result;
+        _giftSuggestions = suggestions;
+      });
     } catch (e) {
-      setState(() => _suggestion = 'Hediye önerisi alınamadı: $e');
+      setState(() {
+        _suggestion = 'Hediye önerisi alınamadı: $e';
+      });
     } finally {
       setState(() => _loading = false);
     }
   }
 
-  InputDecoration _inputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: Color(0xFF9D6EF7)),
-      enabledBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: Color(0xFF9D6EF7)),
-      ),
-      focusedBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: Color(0xFF9D6EF7), width: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8ECFF),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              const Center(
-                child: Text(
-                  "Hediye Bul",
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            const Text("Hediye Bul",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            TextFormField(
+              controller: _ageController,
+              decoration: const InputDecoration(labelText: "Yaş"),
+              keyboardType: TextInputType.number,
+              validator: (value) => value!.isEmpty ? "Yaş girin" : null,
+            ),
+            TextFormField(
+              controller: _genderController,
+              decoration: const InputDecoration(labelText: "Cinsiyet"),
+              validator: (value) => value!.isEmpty ? "Cinsiyet girin" : null,
+            ),
+            TextFormField(
+              controller: _relationController,
+              decoration: const InputDecoration(
+                  labelText: "İlişki türü (arkadaş, sevgili, aile vs.)"),
+              validator: (value) => value!.isEmpty ? "İlişki türü girin" : null,
+            ),
+            TextFormField(
+              controller: _hobbiesController,
+              decoration:
+              const InputDecoration(labelText: "Hobiler (virgülle ayır)"),
+              validator: (value) => value!.isEmpty ? "Hobiler girin" : null,
+            ),
+            TextFormField(
+              controller: _personalityController,
+              decoration: const InputDecoration(labelText: "Kişilik tipi"),
+              validator: (value) =>
+              value!.isEmpty ? "Kişilik tipi girin" : null,
+            ),
+            TextFormField(
+              controller: _budgetMinController,
+              decoration:
+              const InputDecoration(labelText: "Minimum Bütçe (TL)"),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+              value!.isEmpty ? "Minimum bütçe girin" : null,
+            ),
+            TextFormField(
+              controller: _budgetMaxController,
+              decoration:
+              const InputDecoration(labelText: "Maksimum Bütçe (TL)"),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+              value!.isEmpty ? "Maksimum bütçe girin" : null,
+            ),
+            TextFormField(
+              controller: _suggestionCountController,
+              decoration:
+              const InputDecoration(labelText: "Kaç öneri istiyorsun?"),
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+              value!.isEmpty ? "Öneri sayısı girin" : null,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _loading ? null : _getSuggestions,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9D6EF7),
               ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _nameController,
-                decoration: _inputDecoration("İsim"),
-                validator: (value) => value!.isEmpty ? "İsim girin" : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _ageController,
-                decoration: _inputDecoration("Yaş"),
-                keyboardType: TextInputType.number,
-                validator: (value) => value!.isEmpty ? "Yaş girin" : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _genderController,
-                decoration: _inputDecoration("Cinsiyet"),
-                validator: (value) => value!.isEmpty ? "Cinsiyet girin" : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _personalityController,
-                decoration: _inputDecoration("Kişilik özellikleri"),
-                validator: (value) => value!.isEmpty ? "Kişilik tipi girin" : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _hobbiesController,
-                decoration: _inputDecoration("Hobiler"),
-                validator: (value) => value!.isEmpty ? "Hobiler girin" : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _budgetController,
-                decoration: _inputDecoration("Bütçe (TL)"),
-                keyboardType: TextInputType.number,
-                validator: (value) => value!.isEmpty ? "Bütçe girin" : null,
-              ),
-              const SizedBox(height: 10),
-              TextFormField(
-                controller: _relationController,
-                decoration: _inputDecoration("İlişki türü (arkadaş, sevgili, aile vs.)"),
-                validator: (value) => value!.isEmpty ? "İlişki türü girin" : null,
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: _loading ? null : _getSuggestions,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF9D6EF7),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                ),
-                child: const Text(
-                  "Hediye Öner",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 20),
-              if (_loading)
-                const Center(child: CircularProgressIndicator())
-              else if (_suggestion.isNotEmpty)
-                Text(
-                  _suggestion,
-                  style: const TextStyle(fontSize: 16),
-                ),
-            ],
-          ),
+              child: const Text("Hediye Öner"),
+            ),
+            const SizedBox(height: 20),
+            if (_loading)
+              const CircularProgressIndicator()
+            else if (_giftSuggestions.isNotEmpty)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: _giftSuggestions.map((gift) {
+                  return Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    child: ListTile(
+                      leading: Image.network(
+                        gift.imageUrl,
+                        width: 50,
+                        height: 50,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                        const Icon(Icons.image_not_supported),
+                      ),
+                      title: Text(gift.description),
+                      subtitle: Text(gift.link),
+                    ),
+                  );
+                }).toList(),
+              )
+            else
+              SelectableText(_suggestion, style: const TextStyle(fontSize: 16)),
+          ],
         ),
       ),
     );
