@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:swipe_cards/swipe_cards.dart';
 import '../service/gemini_service.dart';
 import '../service/prompt_builder.dart';
 import '../models/gift_suggestion.dart';
@@ -22,9 +23,10 @@ class _GiftSuggestionPageState extends State<GiftSuggestionPage> {
   final _budgetMaxController = TextEditingController();
   final _suggestionCountController = TextEditingController(text: "3");
 
-  String _rawGeminiOutput = '';
   bool _loading = false;
-  List<GiftSuggestion> _giftSuggestions = [];
+  String _rawGeminiOutput = '';
+  List<SwipeItem> _swipeItems = [];
+  late MatchEngine _matchEngine;
 
   Future<void> _getSuggestions() async {
     if (!_formKey.currentState!.validate()) return;
@@ -43,75 +45,104 @@ class _GiftSuggestionPageState extends State<GiftSuggestionPage> {
     setState(() {
       _loading = true;
       _rawGeminiOutput = '';
-      _giftSuggestions = [];
+      _swipeItems.clear();
     });
 
     try {
       final suggestions = await GeminiService.getGiftSuggestions(prompt);
+      _swipeItems = suggestions
+          .map((gift) => SwipeItem(
+        content: gift,
+        likeAction: () {
+          // Favoriye eklenecekse buraya işlem yaz
+        },
+      ))
+          .toList();
+
+      _matchEngine = MatchEngine(swipeItems: _swipeItems);
+
       setState(() {
-        _giftSuggestions = suggestions;
-        _rawGeminiOutput = 'Suggestions retrieved.';
+        _rawGeminiOutput = 'Hediye önerileri alındı.';
       });
     } catch (e) {
       setState(() {
-        _rawGeminiOutput = 'Error: $e';
+        _rawGeminiOutput = 'Hata: $e';
       });
     } finally {
       setState(() => _loading = false);
     }
   }
 
-  Widget _buildGiftCard(GiftSuggestion gift) {
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (gift.imageUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Image.network(
-                gift.imageUrl,
-                height: 160,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox(
-                  height: 160,
-                  child: Center(child: Icon(Icons.image_not_supported)),
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.all(14),
+  Widget _buildSwipeCards() {
+    return _swipeItems.isEmpty
+        ? Text(_rawGeminiOutput)
+        : SizedBox(
+      height: 500,
+      child: SwipeCards(
+        matchEngine: _matchEngine,
+        itemBuilder: (context, index) {
+          final gift = _swipeItems[index].content as GiftSuggestion;
+          return Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(gift.title,
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Text(gift.description),
-                const SizedBox(height: 10),
-                InkWell(
-                  onTap: () async {
-                    final url = Uri.parse(gift.link);
-                    if (await canLaunchUrl(url)) {
-                      await launchUrl(url);
-                    }
-                  },
-                  child: Text(
-                    gift.link,
-                    style: const TextStyle(
-                        color: Color(0xFF9D6EF7),
-                        decoration: TextDecoration.underline),
+                if (gift.imageUrl.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                    child: Image.network(
+                      gift.imageUrl,
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox(
+                        height: 200,
+                        child: Center(child: Icon(Icons.image_not_supported)),
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        gift.title,
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(gift.description),
+                      const SizedBox(height: 10),
+                      InkWell(
+                        onTap: () async {
+                          final url = Uri.parse(gift.link);
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url);
+                          }
+                        },
+                        child: Text(
+                          gift.link,
+                          style: const TextStyle(
+                              color: Color(0xFF9D6EF7),
+                              decoration: TextDecoration.underline),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
+          );
+        },
+        onStackFinished: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Kartlar bitti!")));
+        },
+        upSwipeAllowed: false,
+        fillSpace: true,
       ),
     );
   }
@@ -170,24 +201,19 @@ class _GiftSuggestionPageState extends State<GiftSuggestionPage> {
                   onPressed: _loading ? null : _getSuggestions,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF9D6EF7),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14, horizontal: 24),
                   ),
-                  child: const Text("🎁 Hediye Öner", style: TextStyle(fontSize: 16)),
+                  child:
+                  const Text("🎁 Hediye Öner", style: TextStyle(fontSize: 16)),
                 ),
                 const SizedBox(height: 24),
                 if (_loading)
                   const CircularProgressIndicator()
-                else if (_giftSuggestions.isNotEmpty)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: _giftSuggestions.map(_buildGiftCard).toList(),
-                  )
                 else
-                  SelectableText(
-                    _rawGeminiOutput,
-                    style: const TextStyle(fontSize: 16),
-                  ),
+                  _buildSwipeCards(),
               ],
             ),
           ),
